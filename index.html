@@ -8,10 +8,12 @@
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/framer-motion@11/dist/framer-motion.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&family=Alef:wght@400;700&display=swap" rel="stylesheet">
   
-  <!-- Firebase SDK -->
-  <script type="module">
+  <!-- Firebase SDK -->  
+  <script type="module">  
+
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
     import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, query, where, serverTimestamp, increment } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
@@ -300,13 +302,87 @@
         return String(val);
       };
 
+      const exportData = (format) => {
+        if (responses.length === 0) {
+          alert('אין תשובות לייצוא');
+          return;
+        }
+
+        const filename = `${form.title || 'form'}_${new Date().toISOString().split('T')[0]}.${format}`;
+        
+        if (format === 'json') {
+          const dataStr = JSON.stringify({
+            formTitle: form.title,
+            formId: form.id,
+            questions: form.questions,
+            responses: responses,
+            exportDate: new Date().toISOString()
+          }, null, 2);
+          const dataBlob = new Blob([dataStr], {type: 'application/json;charset=utf-8'});
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(dataBlob);
+          link.download = filename;
+          link.click();
+        } else { // csv
+          const headers = ['תשובה #', 'תאריך'].concat(form.questions.map(q => q.question || 'שאלה'));
+          const csvRows = responses.map((resp, i) => {
+            const row = [
+              responses.length - i,
+              formatDate(resp.submittedAt)
+            ];
+            form.questions.forEach(q => {
+              let val = resp.answers?.[q.id];
+              if (val === null || val === undefined || val === '') val = '';
+              else if (q.type === QUESTION_TYPES.RATING || q.type === QUESTION_TYPES.SCALE) val = Number(val);
+              else val = String(val);
+              row.push(val);
+            });
+            return row;
+          });
+          
+          const csvContent = [headers, ...csvRows].map(row => 
+            row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')
+          ).join('\\r\\n');
+          
+          Papa.unparse(csvContent, {
+            download: true,
+            filename: filename,
+            delimiter: ','
+          });
+        }
+      };
+
       return (
         <div className="responses-container fade-in-up">
           <div className="responses-header">
             <button className="btn btn-secondary" onClick={onBack}>→ חזרה</button>
             <h2 style={{fontSize:'1.8rem',fontWeight:800}}>{form.title}</h2>
-            <span style={{color:'var(--secondary)',fontWeight:700}}>{responses.length} תשובות</span>
+            <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+              <span style={{color:'var(--secondary)',fontWeight:700}}>{responses.length} תשובות</span>
+              <div className="export-dropdown" onClick={e => e.stopPropagation()}>
+                <button 
+                  className="btn btn-secondary btn-xs-export" 
+                  onClick={e => {
+                    e.stopPropagation();
+                    document.getElementById('export-menu').classList.toggle('show');
+                  }}
+                >
+                  📥 ייצוא
+                </button>
+                <div id="export-menu" className="export-menu">
+                  <button className="export-option" onClick={() => {
+                    exportData('csv');
+                    document.getElementById('export-menu').classList.remove('show');
+                  }}>📊 CSV</button>
+                  <button className="export-option" onClick={() => {
+                    exportData('json');
+                    document.getElementById('export-menu').classList.remove('show');
+                  }}>📄 JSON</button>
+                </div>
+              </div>
+            </div>
           </div>
+
 
           {loading ? (
             <div style={{textAlign:'center',padding:'3rem',color:'rgba(255,255,255,0.5)'}}>טוען תשובות...</div>
