@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - כל משתמש יכול לקרוא ולכתוב רק את המסמך שלו
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Forms collection - יוצר הטופס יכול לערוך, כולם יכולים לקרוא
+    match /forms/{formId} {
+      allow read: if true; // כולם יכולים לראות טפסים
+      allow create: if request.auth != null; // משתמש מחובר יכול ליצור
+      allow update, delete: if request.auth != null && 
+                               request.auth.uid == resource.data.creatorId;
+    }
+    
+    // Responses collection - כולם יכולים להגיש, רק יוצר הטופס יכול לקרוא
+    match /responses/{responseId} {
+      allow create: if true; // כולם יכולים להגיש תשובות
+      allow read: if request.auth != null && 
+                     get(/databases/$(database)/documents/forms/$(resource.data.formId)).data.creatorId == request.auth.uid;
+      allow update, delete: if false; // אין עריכה של תשובות
+    }
+  }
+}
