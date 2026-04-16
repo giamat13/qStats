@@ -9,6 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/framer-motion@11/dist/framer-motion.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&family=Alef:wght@400;700&display=swap" rel="stylesheet">
   
   <!-- Firebase SDK -->  
@@ -40,7 +41,7 @@
   <div id="root"></div>
   
   <script type="text/babel">
-    const { useState, useEffect, useCallback } = React;
+    const { useState, useEffect, useCallback, useRef } = React;
 
     // Question Types
     const QUESTION_TYPES = {
@@ -269,10 +270,113 @@
       );
     }
 
+    // Chart component
+    function BarChart({ labels, data, color = '#673ab7' }) {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        chartRef.current = new Chart(canvasRef.current, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{ data, backgroundColor: color + 'cc', borderColor: color, borderWidth: 1, borderRadius: 6 }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f0ebf8' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+        return () => chartRef.current?.destroy();
+      }, [labels.join(), data.join()]);
+      return <canvas ref={canvasRef} />;
+    }
+
+    // Stats View
+    function StatsView({ form, responses }) {
+      if (responses.length === 0) return (
+        <div style={{textAlign:'center',padding:'3rem',color:'var(--text-secondary)'}}>אין תשובות לניתוח</div>
+      );
+
+      return (
+        <div className="stats-analysis">
+          {form.questions.map(q => {
+            const vals = responses.map(r => r.answers?.[q.id]).filter(v => v !== undefined && v !== null && v !== '');
+            if (vals.length === 0) return null;
+
+            if (q.type === QUESTION_TYPES.MULTIPLE_CHOICE) {
+              const counts = {};
+              vals.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+              const labels = Object.keys(counts);
+              const data = labels.map(l => counts[l]);
+              return (
+                <div key={q.id} className="stat-analysis-card">
+                  <div className="stat-analysis-title">{q.question}</div>
+                  <div className="stat-analysis-meta">{vals.length} תשובות</div>
+                  <BarChart labels={labels} data={data} />
+                  <div className="stat-pills">
+                    {labels.map((l, i) => (
+                      <span key={i} className="stat-pill">
+                        {l}: <strong>{counts[l]}</strong> ({Math.round(counts[l]/vals.length*100)}%)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            if (q.type === QUESTION_TYPES.RATING || q.type === QUESTION_TYPES.SCALE) {
+              const nums = vals.map(Number);
+              const avg = (nums.reduce((a,b) => a+b, 0) / nums.length).toFixed(1);
+              const max = q.type === QUESTION_TYPES.RATING ? 5 : 10;
+              const counts = {};
+              for (let i = 1; i <= max; i++) counts[i] = 0;
+              nums.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+              return (
+                <div key={q.id} className="stat-analysis-card">
+                  <div className="stat-analysis-title">{q.question}</div>
+                  <div className="stat-analysis-meta">{vals.length} תשובות</div>
+                  <div className="stat-avg-display">
+                    <span className="stat-avg-num">{avg}</span>
+                    <span className="stat-avg-denom">/{max}</span>
+                    <span className="stat-avg-label">ממוצע</span>
+                  </div>
+                  <BarChart labels={Object.keys(counts)} data={Object.values(counts)} color="#1a73e8" />
+                </div>
+              );
+            }
+
+            if (q.type === QUESTION_TYPES.TEXT) {
+              return (
+                <div key={q.id} className="stat-analysis-card">
+                  <div className="stat-analysis-title">{q.question}</div>
+                  <div className="stat-analysis-meta">{vals.length} תשובות טקסט</div>
+                  <div className="text-responses-list">
+                    {vals.slice(0, 5).map((v, i) => (
+                      <div key={i} className="text-response-item">{v}</div>
+                    ))}
+                    {vals.length > 5 && <div className="text-more">ועוד {vals.length - 5} תשובות...</div>}
+                  </div>
+                </div>
+              );
+            }
+
+            return null;
+          })}
+        </div>
+      );
+    }
+
     // Responses View
     function ResponsesView({ form, onBack }) {
       const [responses, setResponses] = useState([]);
       const [loading, setLoading] = useState(true);
+      const [activeTab, setActiveTab] = useState('stats');
 
       useEffect(() => {
         const load = async () => {
@@ -385,27 +489,40 @@
 
 
           {loading ? (
-            <div style={{textAlign:'center',padding:'3rem',color:'rgba(255,255,255,0.5)'}}>טוען תשובות...</div>
-          ) : responses.length === 0 ? (
-            <div style={{textAlign:'center',padding:'4rem',color:'rgba(255,255,255,0.4)'}}>
-              <h3 style={{fontSize:'1.5rem',marginBottom:'0.5rem'}}>אין תשובות עדיין</h3>
-              <p>שתף את הטופס כדי לקבל תשובות</p>
-            </div>
+            <div style={{textAlign:'center',padding:'3rem',color:'var(--text-secondary)'}}>טוען תשובות...</div>
           ) : (
-            responses.map((resp, i) => (
-              <div key={resp.id} className="response-entry">
-                <div className="response-entry-header">
-                  <span className="response-entry-num">תשובה #{responses.length - i}</span>
-                  <span className="response-entry-date">{formatDate(resp.submittedAt)}</span>
-                </div>
-                {form.questions.map(q => (
-                  <div key={q.id} className="response-qa">
-                    <div className="response-q">{q.question || `שאלה`}</div>
-                    <div className="response-a">{formatAnswer(q, resp.answers?.[q.id])}</div>
-                  </div>
-                ))}
+            <>
+              <div className="responses-tabs">
+                <button className={`tab-btn ${activeTab==='stats'?'active':''}`} onClick={() => setActiveTab('stats')}>📊 סטטיסטיקות</button>
+                <button className={`tab-btn ${activeTab==='individual'?'active':''}`} onClick={() => setActiveTab('individual')}>📋 תשובות בודדות</button>
               </div>
-            ))
+
+              {activeTab === 'stats' && <StatsView form={form} responses={responses} />}
+
+              {activeTab === 'individual' && (
+                responses.length === 0 ? (
+                  <div style={{textAlign:'center',padding:'4rem',color:'var(--text-secondary)'}}>
+                    <h3 style={{fontSize:'1.5rem',marginBottom:'0.5rem'}}>אין תשובות עדיין</h3>
+                    <p>שתף את הטופס כדי לקבל תשובות</p>
+                  </div>
+                ) : (
+                  responses.map((resp, i) => (
+                    <div key={resp.id} className="response-entry">
+                      <div className="response-entry-header">
+                        <span className="response-entry-num">תשובה #{responses.length - i}</span>
+                        <span className="response-entry-date">{formatDate(resp.submittedAt)}</span>
+                      </div>
+                      {form.questions.map(q => (
+                        <div key={q.id} className="response-qa">
+                          <div className="response-q">{q.question || `שאלה`}</div>
+                          <div className="response-a">{formatAnswer(q, resp.answers?.[q.id])}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                )
+              )}
+            </>
           )}
         </div>
       );

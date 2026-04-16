@@ -1130,3 +1130,119 @@ body {
   .scale-buttons { gap: 4px; }
   .scale-btn { width: 36px; height: 36px; font-size: 0.85rem; }
 }
+
+/* ============================================
+   STATS & CHARTS
+   ============================================ */
+.responses-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: var(--surface-2);
+  border-radius: var(--radius-xl);
+  padding: 4px;
+  width: fit-content;
+}
+
+.tab-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-xl);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab-btn.active {
+  background: var(--surface);
+  color: var(--purple);
+  box-shadow: var(--shadow-1);
+}
+
+.stats-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stat-analysis-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-1);
+  border-top: 4px solid var(--purple-light);
+}
+
+.stat-analysis-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.stat-analysis-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.stat-avg-display {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.stat-avg-num {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--purple);
+  line-height: 1;
+}
+.stat-avg-denom {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+.stat-avg-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.stat-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.stat-pill {
+  background: var(--purple-bg);
+  color: var(--purple-dark);
+  padding: 4px 12px;
+  border-radius: var(--radius-xl);
+  font-size: 0.82rem;
+}
+
+.text-responses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.text-response-item {
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border-right: 3px solid var(--purple-light);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+.text-more {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 4px;
+}
