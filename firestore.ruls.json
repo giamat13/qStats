@@ -1,26 +1,36 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Users collection - כל משתמש יכול לקרוא ולכתוב רק את המסמך שלו
+
+    // --- Users ---
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Forms collection - יוצר הטופס יכול לערוך, כולם יכולים לקרוא
+
+    // --- Forms ---
     match /forms/{formId} {
-      allow read: if true; // כולם יכולים לראות טפסים
-      allow create: if request.auth != null; // משתמש מחובר יכול ליצור
-      allow update, delete: if request.auth != null && 
-                               request.auth.uid == resource.data.creatorId;
+      allow read: if true;
+      // כל אחד יכול לעדכן responseCount (ספירת תשובות ציבורית)
+      allow update: if request.auth == null
+                       ? request.resource.data.diff(resource.data).affectedKeys().hasOnly(['responseCount'])
+                       : request.auth.uid == resource.data.creatorId;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
+
+      // --- Responses (subcollection) ---
+      match /responses/{responseId} {
+        allow create: if true;
+        allow read: if request.auth != null &&
+                       get(/databases/$(database)/documents/forms/$(formId)).data.creatorId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
-    
-    // Responses collection - כולם יכולים להגיש, רק יוצר הטופס יכול לקרוא
-    match /responses/{responseId} {
-      allow create: if true; // כולם יכולים להגיש תשובות
-      allow read: if request.auth != null && 
-                     get(/databases/$(database)/documents/forms/$(resource.data.formId)).data.creatorId == request.auth.uid;
-      allow update, delete: if false; // אין עריכה של תשובות
+
+    // --- Default Deny ---
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
